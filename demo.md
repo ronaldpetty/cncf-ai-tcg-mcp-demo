@@ -2,6 +2,7 @@
 
 This script demonstrates MCP functionality between popular tools including K8sGPT and Claude Desktop.
 
+
 ## k8sgpt MCP Server via cURL
 
 ```
@@ -12,6 +13,7 @@ Enter openai Key: <PASTE_KEY>
 
 % k8sgpt serve --mcp --mcp-http --mcp-port 8089 --backend openai
 ```
+
 
 ## Tooling
 
@@ -46,6 +48,26 @@ Enter openai Key: <PASTE_KEY>
   }' | jq '.result.content[].text' | xargs printf "%b"
 ```
 
+Here is "false" but notice output changes thus xargs doesn't parse.
+
+```
+% curl -sX POST http://localhost:8089/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "analyze",
+      "arguments": {
+        "namespace": "kube-system",
+        "explain": false
+      }
+    }
+  }' | jq '.result.content[].text' -r 
+```
+
+
 ## Prompting
 
 ```
@@ -79,6 +101,7 @@ Enter openai Key: <PASTE_KEY>
   }' | jq '.result.messages[].content.text' | xargs printf "%b"
 ```
 
+
 ## Resources
 
 ```
@@ -103,6 +126,7 @@ Enter openai Key: <PASTE_KEY>
     }
   }' | jq '.result.contents'
 ```
+
 
 # k8sgpt MCP Server via Claude Desktop
 
@@ -147,6 +171,7 @@ Enter openai Key: <PASTE_KEY>
 
 In Claude Desktop chat, show prompt and rsource connections/apps (e.g. ks8gpt)
 
+
 ## "filesystem" MCP Server STDIO demo
 
 In Claude Desktop chat:
@@ -175,9 +200,11 @@ In Claude Desktop chat:
 * Show reasoning (highlight host did or did not by pass tooling)
 * Show log
 
+
 ## k8sgpt MCP Server STDIO demo
 
 * Execute prompts / resources (note it fails in UI but shows in logs)
+
 
 ## Elicitation
 
