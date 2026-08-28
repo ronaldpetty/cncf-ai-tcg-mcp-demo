@@ -24,7 +24,7 @@ $
 ```
 
 ```
-$ curl -sL https://raw.githubusercontent.com/RX-M/classfiles/refs/heads/master/k8s.sh | sh
+$ export DOCKER_VERSION=29.6.2 && curl -sL https://raw.githubusercontent.com/RX-M/classfiles/refs/heads/master/k8s.sh | sh
 
 # enable command line completion
 $ source <(kubectl completion bash)
@@ -34,7 +34,7 @@ Install K8sGPT.
 
 ```
 $ sudo dpkg -P k8sgpt
-$ curl -sLO https://github.com/k8sgpt-ai/k8sgpt/releases/download/v0.3.48/k8sgpt_amd64.deb
+$ curl -sLO https://github.com/k8sgpt-ai/k8sgpt/releases/download/v0.4.36/k8sgpt_amd64.deb
 $ sudo dpkg -i k8sgpt_amd64.deb
 
 # enable command line completion
@@ -60,7 +60,7 @@ $ brew install k8sgpt
 Without AI, we can get list of identified errors on the Kubernetes cluster:
 
 ```
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
@@ -78,12 +78,12 @@ $ kubectl run brokenpod --image=nginx:unknown_version
 
 pod/brokenpod created
 
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
 0: Pod default/brokenpod()
-- Error: Back-off pulling image "nginx:unknown_version"
+- Error: Back-off pulling image "nginx:unknown_version": ErrImagePull: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:unknown_version": failed to resolve image: docker.io/library/nginx:unknown_version: not found
 
 $
 ```
@@ -99,7 +99,7 @@ $ kubectl run happypod --image=nginx
 
 pod/happypod created
 
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
@@ -111,7 +111,7 @@ $
 With AI, we can get a more detailed response:
 
 ```
-$ k8sgpt analyze --explain
+$ k8sgpt analyze -n default --explain
 Error: AI provider not specified in configuration. Please run k8sgpt auth
 ```
 
@@ -137,7 +137,7 @@ Flags:
   -h, --help   help for auth
 
 Global Flags:
-      --config string        Default config file (/Users/ronaldpetty/Library/Application Support/k8sgpt/k8sgpt.yaml)
+      --config string        Default config file (/home/ubuntu/.config/k8sgpt/k8sgpt.yaml)
       --kubeconfig string    Path to a kubeconfig. Only required if out-of-cluster.
       --kubecontext string   Kubernetes context to use. Only required if out-of-cluster.
   -v, --verbose              Show detailed tool actions (e.g., API calls, checks).
@@ -150,16 +150,18 @@ View AI providers, note, local is also an option.
 ```
 $ k8sgpt auth list
 
-Default: 
+Default:
 > openai
-Active: 
-Unused: 
+Active:
+Unused:
 > openai
+> anthropic
 > localai
 > ollama
 > azureopenai
 > cohere
 > amazonbedrock
+> amazonbedrockconverse
 > amazonsagemaker
 > google
 > noopai
@@ -168,6 +170,7 @@ Unused:
 > oci
 > customrest
 > ibmwatsonxai
+> groq
 ```
 
 There is a helper command to retrieve a key called `generate`.
@@ -185,7 +188,7 @@ Flags:
   -h, --help             help for generate
 
 Global Flags:
-      --config string        Default config file (/Users/ronaldpetty/Library/Application Support/k8sgpt/k8sgpt.yaml)
+      --config string        Default config file (/home/ubuntu/.config/k8sgpt/k8sgpt.yaml)
       --kubeconfig string    Path to a kubeconfig. Only required if out-of-cluster.
       --kubecontext string   Kubernetes context to use. Only required if out-of-cluster.
   -v, --verbose              Show detailed tool actions (e.g., API calls, checks).
@@ -218,6 +221,8 @@ Usage:
   k8sgpt auth add [flags]
 
 Flags:
+  -a, --azureAPIType string                  AzureOpenAI API Type name. Valid values: AZURE, AZURE_AD or CLOUDFLARE_AZURE (only for azureopenai backend)
+      --azureAPIVersion string               AzureOpenAI API version, e.g. 2024-02-15-preview (only for azureopenai backend)
   -b, --backend string                       Backend AI provider (default "openai")
   -u, --baseurl http://localhost:8080/v1     URL AI provider, (e.g http://localhost:8080/v1)
   -k, --compartmentId string                 Compartment ID for generative AI model (only for oci backend)
@@ -229,13 +234,14 @@ Flags:
   -o, --organizationId string                OpenAI or AzureOpenAI Organization ID (only for openai and azureopenai backend)
   -p, --password string                      Backend AI password
   -i, --providerId string                    Provider specific ID for e.g. project (only for googlevertexai/ibmwatsonxai backend)
-  -r, --providerRegion string                Provider Region name (only for amazonbedrock, googlevertexai backend)
+  -r, --providerRegion string                Provider Region name (only for amazonbedrock, amazonbedrockconverse, googlevertexai backend)
+  -s, --stopsequences strings                Stop Sequences: Define specific tokens or phrases that signal the model to stop generating text.
   -t, --temperature float32                  The sampling temperature, value ranges between 0 ( output be more deterministic) and 1 (more random) (default 0.7)
   -c, --topk int32                           Sampling Cutoff: Set a threshold (1-100) to restrict the sampling process to the top K most probable words at each step. Higher values lead to greater variability, lower values increases predictability. (default 50)
       --topp float32                         Probability Cutoff: Set a threshold (0.0-1.0) to limit word choices. Higher values add randomness, lower values increase predictability. (default 0.5)
 
 Global Flags:
-      --config string        Default config file (/Users/ronaldpetty/Library/Application Support/k8sgpt/k8sgpt.yaml)
+      --config string        Default config file (/home/ubuntu/.config/k8sgpt/k8sgpt.yaml)
       --kubeconfig string    Path to a kubeconfig. Only required if out-of-cluster.
       --kubecontext string   Kubernetes context to use. Only required if out-of-cluster.
   -v, --verbose              Show detailed tool actions (e.g., API calls, checks).
@@ -270,20 +276,19 @@ $
 Try to analyze a few times.
 
 ```
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
 0: Pod default/brokenpod()
-- Error: Error response from daemon: failed to resolve reference "docker.io/library/nginx:unknown_version": docker.io/library/nginx:unknown_version: not found
+- Error: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:unknown_version": failed to resolve image: docker.io/library/nginx:unknown_version: not found
 
-
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
 0: Pod default/brokenpod()
-- Error: Back-off pulling image "nginx:unknown_version": ErrImagePull: Error response from daemon: failed to resolve reference "docker.io/library/nginx:unknown_version": docker.io/library/nginx:unknown_version: not found
+- Error: Back-off pulling image "nginx:unknown_version": ErrImagePull: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:unknown_version": failed to resolve image: docker.io/library/nginx:unknown_version: not found
 
 $
 ```
@@ -308,26 +313,27 @@ brokenpod   0/1     ErrImagePull        0          52s
 With state management in mind, we can now see how a GPT (e.g. gpt-4o-mini) can help us via K8sGPT.
 
 ```
-$ k8sgpt analyze  --explain
+$ k8sgpt analyze -n default --explain
 
  100% |██ ... ██| (1/1, 12 it/min)        
 AI Provider: openai
 
 0: Pod default/brokenpod()
-- Error: Back-off pulling image "nginx:unknown_version": ErrImagePull: Error response from daemon: failed to resolve reference "docker.io/library/nginx:unknown_version": docker.io/library/nginx:unknown_version: not found
-Error: The error indicates that Kubernetes is unable to pull the specified Docker image "nginx:unknown_version" because it cannot find that version in the Docker registry.
+- Error: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:unknown_version": failed to resolve image: docker.io/library/nginx:unknown_version: not found
+Error: The error indicates that Kubernetes cannot find the specified Docker image "nginx:unknown_version" on Docker Hub.
 
-Solution: 
-1. Check the image name and version for typos.
-2. Use a valid version tag (e.g., "nginx:latest").
-3. Update your Kubernetes deployment YAML with the correct image.
-4. Redeploy the application using `kubectl apply -f your-deployment.yaml`.
+Solution:
+1. Check the image name and tag for typos.
+2. Verify the image exists on Docker Hub.
+3. Use a valid tag (e.g., "nginx:latest").
+4. Update your Kubernetes deployment configuration with the correct image.
+5. Redeploy the application.
 ```
 
 > n.b. If you get the following error, its most likely your key was incorrectly configured (e.g. "read-only").
 
 ```
-$ k8sgpt analyze --explain
+$ k8sgpt analyze -n default --explain
 
 Error: failed while calling AI provider openai: error, status code: 401, status: 401 Unauthorized, message: Incorrect API key provided: sk-proj-********************************************************************************************************************************************************X0AA. You can find your API key at https://platform.openai.com/account/api-keys.
 ```
@@ -339,7 +345,7 @@ $ kubectl delete pod brokenpod
 
 pod "brokenpod" deleted
 
-$ k8sgpt analyze --explain
+$ k8sgpt analyze -n default --explain
 
 AI Provider: openai
 
@@ -355,20 +361,21 @@ $ kubectl run brokenpod --image=nginx:unknown_version
 
 pod/brokenpod created
 
-$ k8sgpt analyze --explain -i
+$ k8sgpt analyze -n default --explain -i
 
  100% |███ ... ███| (1/1, 5237 it/s)        
 AI Provider: openai
 
 0: Pod default/brokenpod()
-- Error: Back-off pulling image "nginx:unknown_version": ErrImagePull: Error response from daemon: failed to resolve reference "docker.io/library/nginx:unknown_version": docker.io/library/nginx:unknown_version: not found
-Error: The error indicates that Kubernetes is unable to pull the specified Docker image "nginx:unknown_version" because it cannot find that version in the Docker registry.
+- Error: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:unknown_version": failed to resolve image: docker.io/library/nginx:unknown_version: not found
+Error: The error indicates that Kubernetes cannot find the specified Docker image "nginx:unknown_version" on Docker Hub.
 
-Solution: 
-1. Check the image name and version for typos.
-2. Use a valid version tag (e.g., "nginx:latest").
-3. Update your Kubernetes deployment YAML with the correct image.
-4. Redeploy the application using `kubectl apply -f your-deployment.yaml`.
+Solution:
+1. Check the image name and tag for typos.
+2. Verify the image exists on Docker Hub.
+3. Use a valid tag (e.g., "nginx:latest").
+4. Update your Kubernetes deployment configuration with the correct image.
+5. Redeploy the application.
 
 Interactive mode enabled [type exit to close.]
 Input text: 
@@ -376,19 +383,44 @@ Input text:
 
 Lets ask for help ("Can you tell me the kubectl command to run to fix this issue?").
 
-```
+````
 Input text: Can you tell me the kubectl command to run to fix this issue?
 
-To address the issues mentioned in the context, you would need to run different `kubectl` commands based on the specific problem you're trying to fix. Here are the commands for each issue:
+To address the issues mentioned in the context, you will need to run different `kubectl` commands based on the specific problems.
 
-1. **For the Pod error regarding the image "nginx:unknown_version":**
-   - First, you need to update your deployment YAML file to use a valid image tag (e.g., "nginx:latest"). After updating the YAML file, you can redeploy the application with the following command:
-     ```bash
-     kubectl apply -f your-deployment.yaml
+### For the issue (Broken Pod due to image not found):
+
+1. **Check the current deployment configuration**:
+   ```bash
+   kubectl get deployments -n default
+   ```
+
+2. **Edit the deployment to correct the image tag** (assuming the deployment name is `your-deployment-name`):
+   ```bash
+   kubectl edit deployment your-deployment-name -n default
+   ```
+   In the editor, locate the image line and change `nginx:unknown_version` to a valid version, such as `nginx:latest`.
+
+3. **Redeploy the application** (if you updated the deployment):
+   ```bash
+   kubectl rollout restart deployment your-deployment-name -n default
+
+
+### Summary of Commands:
+- To edit a deployment:
+  ```bash
+  kubectl edit deployment your-deployment-name -n default
+  ```
+- To restart a deployment:
+  ```bash
+  kubectl rollout restart deployment your-deployment-name -n default
+  ```
+
+Make sure to replace `your-deployment-name` with the actual name of your deployment.   
 
 Make sure to replace `your-deployment.yaml` and `<namespace>` with the actual names relevant to your environment.
 Input text:     
-```
+````
 
 Thanks AI! While we didn't use a deployment, if you know K8s, its not wrong. Exit and cleanup.
 
@@ -407,7 +439,7 @@ $ kubectl create service clusterip --tcp=80:80 to-nowhere
 
 service/to-nowhere created
 
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
@@ -415,7 +447,7 @@ AI Provider: AI not used; --explain not set
 - Error: Service has no endpoints, expected label app=to-nowhere
 
 # try with JSON output formatting
-$ k8sgpt analyze --explain -o json
+$ k8sgpt analyze -n default --explain -o json
 
 {
   "provider": "openai",
@@ -433,16 +465,16 @@ $ k8sgpt analyze --explain -o json
           "Sensitive": [
             {
               "Unmasked": "app",
-              "Masked": "d1gi"
+              "Masked": "cio/"
             },
             {
               "Unmasked": "to-nowhere",
-              "Masked": "ZSFmIjNUZjlyMg=="
+              "Masked": "ekMzPnlWaVNUVw=="
             }
           ]
         }
       ],
-      "details": "Error: The service cannot route traffic because it has no endpoints, meaning there are no pods matching the specified label `app=to-nowhere`.\n\nSolution: \n1. Check if the deployment for `app=to-nowhere` exists.\n2. Ensure pods are running: `kubectl get pods -l app=to-nowhere`.\n3. Verify the label on the pods: `kubectl describe pod \u003cpod-name\u003e`.\n4. If missing, update the deployment or service with the correct labels.",
+      "details": "Error: The service is not routing traffic because it has no endpoints, meaning there are no pods matching the specified label `app=to-nowhere`.\n\nSolution: \n1. Check if any pods are running: `kubectl get pods`\n2. Verify pod labels: `kubectl get pods --show-labels`\n3. Ensure pods have the label `app=to-nowhere`.\n4. If not, update pod labels or modify the service to match existing labels.",
       "parentObject": ""
     }
   ]
@@ -454,18 +486,18 @@ We can confirm this via `kubectl`.
 ```
 $ kubectl get svc,endpoints
 
-NAME                                          TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
-service/kubernetes                            ClusterIP   10.96.0.1        <none>        443/TCP   128d
-service/to-nowhere                            ClusterIP   10.107.91.217    <none>        80/TCP    71s
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP   16m
+service/to-nowhere   ClusterIP   10.109.13.112   <none>        80/TCP    65s
 
-NAME                                            ENDPOINTS           AGE
-endpoints/kubernetes                            192.168.65.3:6443   128d
-endpoints/to-nowhere                            <none>              71s
+NAME                   ENDPOINTS           AGE
+endpoints/kubernetes   172.31.18.14:6443   16m
+endpoints/to-nowhere   <none>              65s
 
 $ kubectl get svc to-nowhere -o wide
 
-NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE    SELECTOR
-to-nowhere   ClusterIP   10.107.91.217   <none>        80/TCP    114s   app=to-nowhere
+NAME         TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE   SELECTOR
+to-nowhere   ClusterIP   10.109.13.112   <none>        80/TCP    83s   app=to-nowhere
 
 $ kubectl run nginx --image=nginx -l app=to-nowhere
 
@@ -473,25 +505,25 @@ pod/nginx created
 
 $ kubectl get svc,endpoints
 
-NAME                                          TYPE        CLUSTER-IP       EXTERNAL-IP   PORT(S)   AGE
-service/kubernetes                            ClusterIP   10.96.0.1        <none>        443/TCP   128d
-service/to-nowhere                            ClusterIP   10.107.91.217    <none>        80/TCP    2m11s
+NAME                 TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)   AGE
+service/kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP   16m
+service/to-nowhere   ClusterIP   10.109.13.112   <none>        80/TCP    101s
 
-NAME                                            ENDPOINTS           AGE
-endpoints/kubernetes                            192.168.65.3:6443   128d
-endpoints/to-nowhere                            10.1.1.53:80        2m11s
+NAME                   ENDPOINTS           AGE
+endpoints/kubernetes   172.31.18.14:6443   16m
+endpoints/to-nowhere   10.0.0.142:80       101s
 ```
 
 Now that we have a destination, the journey should be fixed.
 
 ```
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
 No problems detected
 
-$ k8sgpt analyze --explain
+$ k8sgpt analyze -n default --explain
 
 AI Provider: openai
 
@@ -514,21 +546,28 @@ ai:
     providers:
         - name: openai
           model: gpt-4o-mini
-          password: sk-proj-...
+          password: sk-proj-K...
           temperature: 0.7
           topp: 0.5
           topk: 50
           maxtokens: 2048
           customheaders: []
     defaultprovider: ""
-commit: Homebrew
-date: "2025-12-18T13:52:08Z"
+commit: d33935a
+date: unknown
 kubeconfig: ""
 kubecontext: ""
 verbose: false
-version: 0.4.27
+version: 0.4.36
 
 $
+```
+
+You can find the default location of the configuration file by looking at help menu.
+
+```
+% k8sgpt -h | grep Default
+      --config string        Default config file (/home/ubuntu/.config/k8sgpt/k8sgpt.yaml)
 ```
 
 Most commands that configure or use the backend supply `-b / --backend`. Some commands such as `-e / --explain` use the default backend (if configured). Unfortunately, the terms "backend" and "provider" overlap.
@@ -542,37 +581,38 @@ Now we look at how K8sGPT views K8s resources. The term "filters" refers to Reso
 ```
 $ k8sgpt filters list
 
-Active: 
+Active:
+> Service
+> ValidatingWebhookConfiguration
+> MutatingWebhookConfiguration
+> ConfigMap
+> DaemonSet
+> PersistentVolumeClaim
+> Ingress
+> StatefulSet
 > Job
+> CronJob
 > Node
 > Pod
 > Deployment
 > ReplicaSet
-> Service
-> CronJob
-> ValidatingWebhookConfiguration
-> MutatingWebhookConfiguration
-> ConfigMap
-> PersistentVolumeClaim
-> Ingress
-> StatefulSet
-Unused: 
-> HorizontalPodAutoscaler
-> PodDisruptionBudget
-> GatewayClass
-> Storage
-> ClusterCatalog
-> ClusterExtension
-> Subscription
-> CatalogSource
-> NetworkPolicy
-> Log
+Unused:
 > Gateway
-> HTTPRoute
-> Security
+> Subscription
 > OperatorGroup
-> ClusterServiceVersion
+> HorizontalPodAutoscaler
+> HTTPRoute
 > InstallPlan
+> NetworkPolicy
+> GatewayClass
+> ClusterCatalog
+> PodDisruptionBudget
+> Log
+> Storage
+> Security
+> ClusterExtension
+> ClusterServiceVersion
+> CatalogSource
 ```
 
 We can see Pod and Service K8s resources listed under a filter. 
@@ -584,71 +624,73 @@ $ kubectl delete pod brokenpod nginx
 $ kubectl delete svc to-nowhere
 $ kubectl run brokenpod --image=nginx:i_dont_exist
 
-$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
 0: Pod default/brokenpod()
-- Error: Back-off pulling image "nginx:i_dont_exist"
+- Error: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:i_dont_exist": failed to resolve image: docker.io/library/nginx:i_dont_exist: not found
 
 $ k8sgpt filters remove Pod
 
 Filter(s) Pod removed
 
 ~$ k8sgpt filters list
-Active: 
+
+Active:
+> PersistentVolumeClaim
+> Service
 > ValidatingWebhookConfiguration
 > MutatingWebhookConfiguration
 > ConfigMap
-> Deployment
+> DaemonSet
 > ReplicaSet
-> Service
 > Ingress
+> StatefulSet
 > Job
 > CronJob
 > Node
-> PersistentVolumeClaim
-> StatefulSet
-Unused: 
+> Deployment
+Unused:
 > Pod
-> HTTPRoute
+> Log
 > PodDisruptionBudget
-> Gateway
+> GatewayClass
+> HTTPRoute
+> Storage
 > Security
 > ClusterCatalog
 > ClusterExtension
-> CatalogSource
-> Storage
 > ClusterServiceVersion
 > Subscription
 > InstallPlan
-> NetworkPolicy
 > OperatorGroup
 > HorizontalPodAutoscaler
-> Log
-> GatewayClass
+> Gateway
+> CatalogSource
+> NetworkPolicy
 
-~$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
 No problems detected
 
-~$ kubectl get pods
+$ kubectl get pods
 
 NAME        READY   STATUS             RESTARTS   AGE
 brokenpod   0/1     ImagePullBackOff   0          92s
 
-~$ k8sgpt filters add Pod
+$ k8sgpt filters add Pod
 
 Filter Pod added
 
-~$ k8sgpt analyze
+$ k8sgpt analyze -n default
 
 AI Provider: AI not used; --explain not set
 
 0: Pod default/brokenpod()
-- Error: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:i_dont_exist": failed to resolve reference "docker.io/library/nginx:i_dont_exist": docker.io/library/nginx:i_dont_exist: not found
+- Error: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:i_dont_exist": failed to resolve image: docker.io/library/nginx:i_dont_exist: not found
 ```
 
 
@@ -747,11 +789,19 @@ func (a *Handler) Run(context.Context, *v1.RunRequest) (*v1.RunResponse, error) 
 Next we compile and launch.
 
 ```
+~/my_ca$ sudo apt install golang-go -y
+
 ~/my_ca$ go mod init test
+
+...
 
 ~/my_ca$ go mod tidy
 
-~/my_ca$ go run main.go analyzer.go
+...
+
+~/my_ca$ CGO_ENABLED=0 go run main.go analyzer.go
+
+Starting!!
 ```
 
 Next we configure K8sGPT so it can reach this new CA service.
@@ -775,20 +825,26 @@ The prior add subcommand injected the information into our configuration file.
 ```
 $ cat .config/k8sgpt/k8sgpt.yaml
 
+Active:
+> my-ca
+   - Url: localhost
+   - Port: 8085
+ubuntu@ip-172-31-18-14:~$ cat .config/k8sgpt/k8sgpt.yaml
 active_filters:
+    - Ingress
+    - CronJob
+    - Deployment
+    - Pod
+    - PersistentVolumeClaim
     - ValidatingWebhookConfiguration
     - MutatingWebhookConfiguration
     - ConfigMap
-    - Deployment
-    - Job
-    - PersistentVolumeClaim
+    - DaemonSet
     - StatefulSet
-    - ReplicaSet
-    - Service
-    - Ingress
-    - CronJob
+    - Job
     - Node
-    - Pod
+    - Service
+    - ReplicaSet
 ai:
     defaultprovider: ""
     providers:
@@ -800,58 +856,56 @@ ai:
           temperature: 0.7
           topk: 50
           topp: 0.5
-commit: Homebrew
+commit: d33935a
 custom_analyzers:
     - name: my-ca
       connection:
         url: localhost
         port: 8085
-date: "2025-12-18T13:52:08Z"
+date: unknown
 kubeconfig: ""
 kubecontext: ""
 verbose: false
-version: 0.4.27
+version: 0.4.36
 ```
 
 To activate this service, we use the --custom-analysis option.
 
 ```
-~$ k8sgpt analyze --custom-analysis
+$ k8sgpt analyze -n default --custom-analysis
 
 AI Provider: AI not used; --explain not set
 
 0: my-ca diskuse()
-- Error: Disk usage is 6
-Disk usage is 6
+- Error: Disk usage is 3
+Disk usage is 3
 1: Pod default/brokenpod()
-- Error: Back-off pulling image "nginx:i_dont_exist"
+- Error: Back-off pulling image "nginx:i_dont_exist": ErrImagePull: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:i_dont_exist": failed to resolve image: docker.io/library/nginx:i_dont_exist: not found
 
-~$ k8sgpt analyze --custom-analysis --explain
+~$ k8sgpt analyze -n default --custom-analysis --explain
 
  100% |██ ... ███| (2/2, 10000 it/s)        
 AI Provider: openai
 
 0: my-ca diskuse()
-- Error: Disk usage is 6
-Error: The disk usage is at 6, indicating that the storage may be nearing its limit or has reached a threshold that could affect performance.
+- Error: Disk usage is 3
+Error: The disk usage is at 3, indicating that the storage space is nearly full or has reached a critical threshold.
 
-Solution: 
-1. Check disk usage with `df -h`.
-2. Identify large files with `du -sh *`.
-3. Delete unnecessary files or logs.
-4. Consider increasing disk size if needed.
-5. Monitor usage regularly to prevent future issues.
+Solution:
+1. Check disk usage: `df -h`
+2. Identify large files: `du -sh /*`
+3. Delete unnecessary files: `rm -rf /path/to/unneeded/files`
+4. Clean up unused Docker images: `docker system prune`
+5. Monitor usage regularly.
 1: Pod default/brokenpod()
-- Error: Back-off pulling image "nginx:i_dont_exist"
-Error: The error indicates that Kubernetes is unable to pull the specified Docker image "nginx:i_dont_exist" because it does not exist in the repository.
+- Error: Back-off pulling image "nginx:i_dont_exist": ErrImagePull: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:i_dont_exist": failed to resolve image: docker.io/library/nginx:i_dont_exist: not found
+Error: The specified Docker image "nginx:i_dont_exist" cannot be found in the repository.
 
-Solution: 
+Solution:
 1. Check the image name for typos.
-2. Verify the image tag exists in the repository.
-3. If using a private repository, ensure proper authentication is set up.
-4. Update the deployment with the correct image name/tag.
-
-$
+2. Verify the image tag exists (e.g., use "nginx:latest").
+3. If using a private repository, ensure proper authentication.
+4. Retry pulling the image with the correct name.
 ```
 
 You can learn more here https://docs.k8sgpt.ai/tutorials/custom-analyzers/.
@@ -860,17 +914,21 @@ You can learn more here https://docs.k8sgpt.ai/tutorials/custom-analyzers/.
 ## MCP
 
 
-### Codex (Mac instructions - Intel processor but should work on M-Series as well)
+### Codex CLI via ChatGPT
 
 ```
-$ brew install codex
+#$ brew install codex
+$ sudo apt install bubblewrap # needed on Ubuntu 24.04+
+$ curl -fsSL https://chatgpt.com/codex/install.sh | sh
+$ export PATH=$HOME/.local/bin:$PATH
 
-$ mkdir ./codex_k8sgpt_via_mcp && cd ./codex_k8sgpt_via_mcp
+$ mkdir ~/codex_k8sgpt_via_mcp && cd ~/codex_k8sgpt_via_mcp
 ```
 
 ```
 $ export OPENAI_API_KEY=sk-proj-...
 
+#$ codex login status
 $ codex login status
 
 Not logged in
@@ -880,15 +938,15 @@ $ printenv OPENAI_API_KEY | codex login --with-api-key
 Reading API key from stdin...
 Successfully logged in
 
-$ codex login status                                  
+$ codex login status
 
-Logged in using an API key - sk-proj-***yt5EA
+Logged in using an API key - sk-proj-***DlVYA
 ```
 
-Now we integrate our MCP configuration (K8sGPT via STDIO).
+Now we integrate K8sGPT via an MCP configuration (using STDIO).
 
 ```
-$ codex_k8sgpt_via_mcp % codex mcp list
+$ codex mcp list
 
 No MCP servers configured yet. Try `codex mcp add my-tool -- my-command`.
 
@@ -924,46 +982,34 @@ $ codex
 ```
 
 ```
-> You are running Codex in /Users/ronaldpetty/codex_k8sgpt_via_mcp
- 
-  Since this folder is not version controlled, we recommend requiring approval of all edits and commands.
- 
-  1. Allow Codex to work in this folder without asking for approval
-› 2. Require approval of edits and commands
- 
+> You are in /home/ubuntu/codex_k8sgpt_via_mcp
+
+  Do you trust the contents of this directory? Working with untrusted contents comes with higher risk of prompt injection. Trusting the directory allows project-local config, hooks, and
+  exec policies to load.
+
+› 1. Yes, continue
+  2. No, quit
+
   Press enter to continue
 ```
 
 * Press "enter"
 
 ```
-╭─────────────────────────────────────────────────╮
-│ ✨ Update available! 0.84.0 -> 0.85.0           │
-│ Run brew upgrade codex to update.               │
-│                                                 │
-│ See full release notes:                         │
-│ https://github.com/openai/codex/releases/latest │
-╰─────────────────────────────────────────────────╯
+╭───────────────────────────────────────────╮
+│ >_ OpenAI Codex (v0.147.0)                │
+│                                           │
+│ model:     gpt-5.6-sol   /model to change │
+│ directory: ~/codex_k8sgpt_via_mcp         │
+╰───────────────────────────────────────────╯
 
-╭─────────────────────────────────────────────╮
-│ >_ OpenAI Codex (v0.84.0)                   │
-│                                             │
-│ model:     gpt-5.2-codex   /model to change │
-│ directory: ~/codex_k8sgpt_via_mcp           │
-╰─────────────────────────────────────────────╯
+  Tip: Our most capable model yet. GPT-5.6 Sol can tackle complex code changes, dig into research, produce polished documents, and take on your most ambitious work. Sol is highly capable
+  at lower reasoning efforts—try starting lower, then turn it up for harder jobs.
 
-  To get started, describe a task or try one of these commands:
 
-  /init - create an AGENTS.md file with instructions for Codex
-  /status - show current session configuration
-  /approvals - choose what Codex can do without approval
-  /model - choose what model and reasoning effort to use
-  /review - review any changes and find issues
+› Run /review on my current changes
 
- 
-› Summarize recent commits
- 
-  100% context left · ? for shortcuts
+  gpt-5.6-sol default · ~/codex_k8sgpt_via_mcp
 ```
 
 List MCP services.
@@ -973,19 +1019,17 @@ List MCP services.
 
 🔌  MCP Tools
 
+  • No MCP tools available.
+
   • k8sgpt
-    • Status: enabled
     • Auth: Unsupported
-    • Command: k8sgpt serve --mcp
-    • Tools: add-filters, analyze, cluster-info, config, get-logs, get-resource, list-events, list-filters, list-integrations, list-namespaces, list-resources, remove-filters
-    • Resources: active-filters (active-filters), cluster-info (cluster-info), namespaces (namespaces)
-    • Resource templates: (none)
+    • Tools: (none)
 
 
- 
-› Summarize recent commits
- 
-  100% context left · ? for shortcuts
+
+› Run /review on my current changes
+
+  gpt-5.6-sol default · ~/codex_k8sgpt_via_mcp
 ```
 
 We see the available tools and resources. Lets call "list-namespaces".
@@ -994,25 +1038,54 @@ We see the available tools and resources. Lets call "list-namespaces".
 › #list-namespaces
 
 
+• I’ll query the connected Kubernetes tooling and return the available namespaces.
+
+◦ Calling k8sgpt.list-namespaces({})
+
+
+  Field 1/1
+  Allow the k8sgpt MCP server to run tool "list-namespaces"?
+  › 1. Allow                   Run the tool and continue.
+    2. Allow for this session  Run the tool and remember this choice for this session.
+    3. Always allow            Run the tool and remember this choice for future tool calls.
+    4. Cancel                  Cancel this tool call
+  enter to submit | esc to cancel
+```
+
+```
+› #list-namespaces
+
+
+• I’ll query the connected Kubernetes tooling and return the available namespaces.
+
 • Called k8sgpt.list-namespaces({})
-  └ [{"metadata": {"name": "default", "uid": "899ec73e-29c1-4f74-82e1-549bd39ffbe5", "resourceVersion": "24", "creationTimestamp": "2025-09-09T02:53:31Z", "labels": {"kubernetes.io/metadata.name": "default"}, "managedFields": [{"manager": "kube-
-        apiserver", "operation": "Update", "apiVersion": "v1", "time": "2025-09-09T02:53:31Z", "fieldsType": "FieldsV1", "fieldsV1": {"f:metadata": {"f:labels": {".": {}, "f:kubernetes.io/metadata.name": {}}}}}]}, "spec": {"finalizers":
-        ["kubernetes"]}, "status": {"phase": "Active"}}, {"metadata": {"name": "envoy-ai-gateway-system", "uid": "67a7a236-794b-40f7-9cba-739e3cfbe422", "resourceVersion": "295434", "creationTimestamp": "2026-01-14T19:13:54Z", "labels":
-        {"kubernetes.io/metadata.name": "envoy-ai-gateway-system", "name": "envoy-ai-gateway-system"}, "managedFields": [{"manager": "helm", "operation": "Apply", "apiVersion": "v1", "time": "2026-01-14T19:13:54Z", "fieldsType": "FieldsV1",
-        "fieldsV1": {"f:metadata": {"f:labels": {"f:name": {}}}, "f:spec": {}}}]}, "spec": {"finalizers": ["kubernetes"]}, "status": {"phase": "Active"}}, {"metadata": {"name": "envoy-gateway-system", "uid": "a2844ee2-a46c-45d6-816b-62218d44571a",
-        "resourceVersion": "303729", "creationTimestamp": ...
+  └ [{"metadata": {"name": "cilium-secrets", "uid": "35fa833b-b5f5-4933-8134-a78ab9972a27", "resourceVersion": "336", "creationTimestamp": "2026-08-12T00:18:47Z", "labels":
+        {"app.kubernetes.io/managed-by": "Helm", "app.kubernetes.io/part-of": "cilium", "helm.sh/chart": "cilium-1.20.0", "kubernetes.io/metadata.name": "cilium-secrets"}, "annotations":
+        {"meta.helm.sh/release-name": "cilium", "meta.helm.sh/release-namespace": "kube-system"}, "managedFields": [{"manager": "cilium", "operation": "Update", "apiVersion": "v1", "time":
+        "2026-08-12T00:18:47Z", "fieldsType": "FieldsV1", "fieldsV1": {"f:metadata": {"f:annotations": {".": {}, "f:meta.helm.sh/release-name": {}, "f:meta.helm.sh/release-namespace": {}},
+        "f:labels": {".": {}, "f:app.kubernetes.io/managed-by": {}, "f:app.kubernetes.io/part-of": {}, "f:helm.sh/chart": {}, "f:kubernetes.io/metadata.name": {}}}}}]}, "spec":
+        {"finalizers": ["kubernetes"]}, "...
 
-─ Worked for 3s ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-• Namespaces:
+• The cluster query is still in progress; I’m waiting for the Kubernetes API response.
 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Active namespaces:
+
+  - cilium-secrets
   - default
-  - envoy-ai-gateway-system
-  - envoy-gateway-system
-  - gateway-system
   - kube-node-lease
   - kube-public
   - kube-system
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+› Run /review on my current changes
+
+  gpt-5.6-sol default · ~/codex_k8sgpt_via_mcp
 ```
 
 Now lets "analyze"
@@ -1021,29 +1094,64 @@ Now lets "analyze"
 › #analyze
 
 
-• Called k8sgpt.analyze({})
-  └ {"provider": "", "errors": null, "status": "ProblemDetected", "problems": 16, "results": [{"kind": "Deployment", "name": "envoy-gateway-system/envoy-gateway", "error": [{"Text": "Deployment envoy-gateway-system/envoy-gateway has 1 replicas but 0
-        are available with status running", "KubernetesDoc": "", "Sensitive": [{"Unmasked": "envoy-gateway-system", "Masked": "ZCRtSSUlQUd0aTczZ00tZiFQeiE="}, {"Unmasked": "envoy-gateway", "Masked": "Q1ExbHxyVHpCU3AkNw=="}]}], "details": "",
-        "parentObject": ""}, {"kind": "ConfigMap", "name": "default/kube-root-ca.crt", "error": [{"Text": "ConfigMap kube-root-ca.crt is not used by any pods in the namespace", "KubernetesDoc": "", "Sensitive": []}], "details": "", "parentObject":
-        ""}, {"kind": "ConfigMap", "name": "envoy-ai-gateway-system/kube-root-ca.crt", "error": [{"Text": "ConfigMap kube-root-ca.crt is not used by any pods in the namespace", "KubernetesDoc": "", "Sensitive": []}], "details": "", "parentObject":
-        ""}, {"kind": "ConfigMap", "name": "envoy-gateway-system/kube-root-ca.crt", "error": [{"Text": "ConfigMap kube-root-ca.crt is not used by any pods in the namespace", "KubernetesDoc": "", "Sensitive": []}], "details": "", "parentObject": ""},
-        {"kind": "ConfigMap"...
+• I’ll analyze Kubernetes resources across all namespaces and return the detected issues.
 
-─ Worked for 5s ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+◦ Calling k8sgpt.analyze({"namespace":"","explain":true})
 
-• Analysis results:
 
-  - Deployment envoy-gateway-system/envoy-gateway has 1 replica but 0 available.
-  - Pod default/brokenpod is in ErrImagePull for nginx:i_dont_exist.
-  - Services envoy-gateway-system/envoy-gateway and envoy-gateway-system/envoy-gateway-metrics-service have no ready endpoints.
-  - Multiple ConfigMaps reported as unused (kube-root-ca.crt, cluster-info, etc.). These are often benign system defaults.
+  Field 1/1
+  Allow the k8sgpt MCP server to run tool "analyze"?
 
-  Want me to drill into the failing deployment/pod (events/logs) or filter the analysis to a specific namespace?
+  explain: true
+  namespace:
 
- 
-› Summarize recent commits
- 
-  100% context left · ? for shortcuts
+  › 1. Allow                   Run the tool and continue.
+    2. Allow for this session  Run the tool and remember this choice for this session.
+    3. Always allow            Run the tool and remember this choice for future tool calls.
+    4. Cancel                  Cancel this tool call
+  enter to submit | esc to cancel
+```
+
+```
+› #analyze
+
+
+• I’ll analyze Kubernetes resources across all namespaces and return the detected issues.
+
+• Called k8sgpt.analyze({"namespace":"","explain":true})
+  └ AI Provider: openai
+
+    0: Pod default/brokenpod()
+    - Error: Back-off pulling image "nginx:i_dont_exist": ErrImagePull: rpc error: code = NotFound desc = failed to pull and unpack image "docker.io/library/nginx:i_dont_exist": failed to
+        resolve image: docker.io/library/nginx:i_dont_exist: not found
+    Error: The error indicates that Kubernetes is unable to pull the specified Docker image "nginx:i_dont_exist" because it does not exist in the Docker registry.
+
+    Solution:
+    1. Check the image name for typos.
+    2. Verify the image tag exists on Docker Hub.
+    3. If using a private registry, ensure proper authentication.
+    4. Update the deployment with a valid image name/tag.
+    5. Redeploy the application.
+    1: ConfigMap cilium-secrets/kube-root-ca.crt()
+    - Error: ConfigMap kube-root-ca.crt is not used by any pods in the namespace
+    Error: The ConfigMap `kube-root-ca.crt` is not being utilized by any pods in the specified names...
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Found 11 findings across all namespaces:
+
+  - Action required: default/brokenpod cannot pull nginx:i_dont_exist because that image tag does not exist. Update it to a valid tag, such as nginx:latest.
+  - 10 low-confidence warnings: ConfigMaps reported as unused.
+
+  Avoid deleting system ConfigMaps such as kube-root-ca.crt, cluster-info, kubeadm-config, or kubelet-config; these warnings are expected false positives because they may be consumed by
+  Kubernetes components rather than mounted by pods.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+› Run /review on my current changes
+
+  gpt-5.6-sol default · ~/codex_k8sgpt_via_mcp
 ```
 
 > TODO - find fix in K8sGPT / Codex MCP prompt management (appears missing in Codex)
@@ -1090,3 +1198,501 @@ Documentation:
 Slack
 
 * k8sgpt.slack.com
+
+
+
+TODO - Fix Codex listing issue
+
+
+```
+# stop codex or run
+$ k8sgpt serve --mcp --mcp-http --mcp-port 8089
+
+# another terminal
+$ curl -s -X POST http://localhost:8089/mcp -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+
+...
+```
+
+```
+# if codex stopped
+$ sudo apt install npm
+$ npx -y @modelcontextprotocol/inspector@v1-latest   --cli k8sgpt serve --mcp --method tools/list
+
+⚠️  @modelcontextprotocol/inspector v1 is deprecated.
+    Upgrade:  npx @modelcontextprotocol/inspector@latest
+    v1 receives security fixes only.
+
+{
+  "tools": [
+    {
+      "name": "add-filters",
+      "description": "Add filters to enable specific analyzers",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "description": "List of filter names to add (e.g., ['Pod', 'Service', 'Deployment'])",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "filters"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "analyze",
+      "description": "Analyze Kubernetes resources for issues and problems",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "backend": {
+            "description": "AI backend to use for analysis (e.g., openai, azure, localai)",
+            "type": "string"
+          },
+          "explain": {
+            "description": "Provide detailed explanations for issues",
+            "type": "boolean"
+          },
+          "filters": {
+            "description": "Provide filters to narrow down the analysis (e.g. ['Pods', 'Deployments'])",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "namespace": {
+            "description": "Kubernetes namespace to analyze (empty for all namespaces)",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "cluster-info",
+      "description": "Get Kubernetes cluster information and version",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "config",
+      "description": "Configure K8sGPT settings including custom analyzers and cache",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "cache": {
+            "description": "Cache configuration",
+            "properties": {
+              "bucketName": {
+                "description": "Bucket name for S3/GCS cache",
+                "type": "string"
+              },
+              "containerName": {
+                "description": "Container name for Azure cache",
+                "type": "string"
+              },
+              "endpoint": {
+                "description": "Custom endpoint for S3 cache",
+                "type": "string"
+              },
+              "insecure": {
+                "description": "Use insecure connection for cache",
+                "type": "boolean"
+              },
+              "projectId": {
+                "description": "Project ID for GCS cache",
+                "type": "string"
+              },
+              "region": {
+                "description": "Region for S3/GCS cache",
+                "type": "string"
+              },
+              "storageAccount": {
+                "description": "Storage account for Azure cache",
+                "type": "string"
+              },
+              "type": {
+                "description": "Cache type (s3, azure, gcs)",
+                "enum": [
+                  "s3",
+                  "azure",
+                  "gcs"
+                ],
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "customAnalyzers": {
+            "description": "Custom analyzer configurations",
+            "properties": {
+              "connection": {
+                "properties": {
+                  "port": {
+                    "description": "Port of the custom analyzer service",
+                    "type": "integer"
+                  },
+                  "url": {
+                    "description": "URL of the custom analyzer service",
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              },
+              "name": {
+                "description": "Name of the custom analyzer",
+                "type": "string"
+              }
+            },
+            "type": "object"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get-logs",
+      "description": "Get logs from a pod container",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "container": {
+            "description": "Container name (if pod has multiple containers)",
+            "type": "string"
+          },
+          "namespace": {
+            "description": "Namespace of the pod",
+            "type": "string"
+          },
+          "podName": {
+            "description": "Name of the pod",
+            "type": "string"
+          },
+          "previous": {
+            "description": "Get logs from previous terminated container",
+            "type": "boolean"
+          },
+          "sinceSeconds": {
+            "description": "Return logs newer than this many seconds",
+            "type": "number"
+          },
+          "tailLines": {
+            "description": "Number of lines from the end of logs (default: 100)",
+            "type": "number"
+          }
+        },
+        "required": [
+          "podName",
+          "namespace"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "get-resource",
+      "description": "Get detailed information about a specific Kubernetes resource",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "description": "Name of the resource",
+            "type": "string"
+          },
+          "namespace": {
+            "description": "Namespace of the resource (required for namespaced resources)",
+            "type": "string"
+          },
+          "resourceType": {
+            "description": "Type of resource (e.g., pod, deployment, service)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resourceType",
+          "name"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list-events",
+      "description": "List Kubernetes events for debugging and troubleshooting",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "involvedObjectKind": {
+            "description": "Filter events by involved object kind (e.g., Pod, Deployment)",
+            "type": "string"
+          },
+          "involvedObjectName": {
+            "description": "Filter events by involved object name (e.g., pod name)",
+            "type": "string"
+          },
+          "limit": {
+            "description": "Maximum number of events to return (default: 100)",
+            "type": "number"
+          },
+          "namespace": {
+            "description": "Namespace to list events from (empty for all namespaces)",
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list-filters",
+      "description": "List all available and active analyzers/filters in k8sgpt",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list-integrations",
+      "description": "List available integrations (Prometheus, AWS, Keda, Kyverno, etc.)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list-namespaces",
+      "description": "List all namespaces in the cluster",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "list-resources",
+      "description": "List Kubernetes resources of a specific type (pods, deployments, services, nodes, etc.)",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "labelSelector": {
+            "description": "Label selector to filter resources (e.g., 'app=myapp')",
+            "type": "string"
+          },
+          "namespace": {
+            "description": "Namespace to list resources from (empty for all or cluster-scoped resources)",
+            "type": "string"
+          },
+          "resourceType": {
+            "description": "Type of resource to list (e.g., pods, deployments, services, nodes, jobs, etc.)",
+            "type": "string"
+          }
+        },
+        "required": [
+          "resourceType"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "remove-filters",
+      "description": "Remove filters to disable specific analyzers",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filters": {
+            "description": "List of filter names to remove",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "filters"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    }
+  ]
+}
+```
+
+```
+$ codex doctor --json | jq '.checks["mcp.config"]'
+{
+  "id": "mcp.config",
+  "category": "mcp",
+  "status": "ok",
+  "summary": "MCP configuration is locally consistent",
+  "details": {
+    "configured servers": "1",
+    "disabled servers": "0",
+    "stdio servers": "1"
+  },
+  "remediation": null,
+  "durationMs": 0
+}
+```
+
+example how flaky
+
+```
+› #tools/list
+
+
+• I’m using the OpenAI docs skill because this asks about the tools available in the current Codex session.
+
+• Explored
+  └ Read SKILL.md (openai-docs skill)
+
+• Searching the web
+
+• Searched the web for site:developers.openai.com/codex tools list Codex
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Available tools:
+
+  - Shell command execution and stdin control
+  - File patching
+  - Local image viewing
+  - Web search, pages, weather, finance, sports, and time
+  - MCP resource listing and reading
+  - Goal and plan management
+  - Agent collaboration/delegation
+  - Image generation skill
+  - Codex/OpenAI docs skill
+  - Plugin and skill creation/installation
+
+  Some tools require approval for elevated filesystem or network access.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+/mcp
+
+🔌  MCP Tools
+
+  • No MCP tools available.
+
+  • k8sgpt
+    • Auth: Unsupported
+    • Tools: (none)
+
+
+
+› #tools/list
+
+
+• I’m checking the current session registry so the list reflects the tools enabled right now. I’m also applying the OpenAI docs skill because this is a Codex capability query.
+
+• Explored
+  └ Read SKILL.md (openai-docs skill)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+• K8sGPT MCP tools:
+
+  - add_filters
+  - analyze
+  - cluster_info
+  - config
+  - get_logs
+  - get_resource
+  - list_events
+  - list_filters
+  - list_integrations
+  - list_namespaces
+  - list_resources
+  - remove_filters
+
+  Also available: shell execution, file patching, web access, MCP resource discovery, image viewing, planning/goals, and agent collaboration.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+
+› #prompts/get
+
+
+• prompts/get is unavailable: the connected K8sGPT MCP server exposes tools, but no MCP prompts.
+
+
+› #troubleshoot-pod
+
+
+• Provide the pod name and namespace, for example:
+
+  #troubleshoot-pod pod=my-app-abc123 namespace=default
+
+
+› Summarize recent commits
+
+  gpt-5.6-sol default · ~/codex_k8sgpt_via_mcp
+```
